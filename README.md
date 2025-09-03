@@ -1,1 +1,0 @@
-# Voice-Operated-OTC-Trading-Bot
