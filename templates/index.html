@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Voice Trading Bot</title>
+  <!-- Axios for HTTP requests -->
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+  <!-- Google Fonts: Inter -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet"/>
+  <style>
+    /* Color palette variables */
+    :root {
+      --primary: #4f46e5;
+      --secondary: #6366f1;
+      --dark: #111827;
+      --light: #f3f4f6;
+      --success: #10b981;
+      --danger: #ef4444;
+      --warning: #f59e0b;
+    }
+    /* Global body styles */
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: var(--light);
+      margin: 0;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      color: var(--dark);
+    }
+    /* Container for the chat UI */
+    .container {
+      background: white;
+      width: 90%;
+      max-width: 600px;
+      padding: 2rem;
+      border-radius: 1rem;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      height: 90vh;
+    }
+    /* Header title style */
+    h1 {
+      text-align: center;
+      color: var(--primary);
+      margin-bottom: 0.5rem;
+    }
+    /* Subtitle under title */
+    .subtitle {
+      text-align: center;
+      color: #6b7280;
+      margin-bottom: 2rem;
+    }
+    /* Primary button to start voice trading */
+    #startBtn {
+      background: var(--primary);
+      color: white;
+      padding: 0.75rem 1.5rem;
+      border: none;
+      border-radius: 0.5rem;
+      cursor: pointer;
+      display: block;
+      margin: 0 auto 1rem auto;
+      font-weight: 600;
+      transition: background 0.3s;
+    }
+    /* Disabled state for start button */
+    #startBtn:disabled {
+      background: #9ca3af;
+      cursor: not-allowed;
+    }
+    /* Status text under buttons */
+    #status {
+      text-align: center;
+      font-size: 0.95rem;
+      margin: 0.5rem 0;
+    }
+    /* Chat container for messages */
+    #chatContainer {
+      background: #f9fafb;
+      padding: 1rem;
+      border-radius: 0.5rem;
+      flex: 1;
+      overflow-y: auto;
+      border: 1px solid #e5e7eb;
+      margin-bottom: 1rem;
+      display: flex;
+      flex-direction: column;
+      min-height: 200px;
+    }
+    /* General message bubble */
+    .message {
+      padding: 0.75rem;
+      border-radius: 0.5rem;
+      margin-bottom: 0.5rem;
+      max-width: 85%;
+      word-wrap: break-word;
+      animation: fadeIn 0.3s ease-in;
+      display: block;
+      opacity: 1;
+    }
+    /* Fade-in animation for new messages */
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    /* Styles for bot messages */
+    .bot-message {
+      background: white;
+      border: 1px solid #e5e7eb;
+      align-self: flex-start;
+      color: var(--dark);
+    }
+    /* Styles for user messages */
+    .user-message {
+      background: var(--secondary);
+      color: white;
+      align-self: flex-end;
+    }
+    /* System/info messages (debugging) */
+    .system-message {
+      background: var(--light);
+      border: 1px dashed #d1d5db;
+      align-self: center;
+      max-width: 100%;
+      font-size: 0.8rem;
+      text-align: center;
+      color: var(--dark);
+    }
+    /* Error messages */
+    .error-message {
+      background: #fee2e2;
+      border: 1px solid #fecaca;
+      color: #b91c1c;
+      align-self: center;
+      max-width: 100%;
+      font-size: 0.8rem;
+      text-align: center;
+    }
+    /* Timestamp below each message */
+    .timestamp {
+      display: block;
+      font-size: 0.7rem;
+      color: #9ca3af;
+      text-align: right;
+      margin-top: 0.25rem;
+    }
+    /* End call button (hidden until call starts) */
+    #endCallBtn {
+      position: absolute;
+      top: 1rem;
+      right: 1rem;
+      background: none;
+      border: none;
+      font-size: 1.2rem;
+      color: var(--danger);
+      cursor: pointer;
+      display: none;
+      transition: transform 0.2s ease;
+    }
+    /* Hover effect for end call button */
+    #endCallBtn:hover {
+      transform: scale(1.1);
+    }
+    /* Loading spinner for status */
+    .loader {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border: 2px solid rgba(0,0,0,.2);
+      border-radius: 50%;
+      border-top-color: var(--primary);
+      animation: spin 1s ease-in-out infinite;
+      margin-left: 5px;
+      vertical-align: middle;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    /* Container for text input (initially hidden) */
+    #textInputContainer {
+      display: none;
+      margin-top: 10px;
+      gap: 10px;
+    }
+    /* Text input field styling */
+    #textInput {
+      flex: 1;
+      padding: 10px;
+      border: 1px solid #d1d5db;
+      border-radius: 0.5rem;
+      font-family: 'Inter', sans-serif;
+    }
+    /* Send button for text input */
+    #sendTextBtn {
+      background: var(--primary);
+      color: white;
+      border: none;
+      border-radius: 0.5rem;
+      padding: 10px 15px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: background 0.3s;
+    }
+    /* Disabled state for send button and text input */
+    #sendTextBtn:disabled, #textInput:disabled {
+      background: #9ca3af;
+      cursor: not-allowed;
+    }
+    #sendTextBtn:hover:not(:disabled) { background: #4338ca; }
+    /* Hint for text input usage */
+    .input-hint {
+      text-align: center;
+      color: #6b7280;
+      font-size: 0.85rem;
+      margin-top: 0.5rem;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- End session button -->
+    <button id="endCallBtn" title="End Session">✖</button>
+    <h1>Voice Trading Bot</h1>
+    <p class="subtitle">Trade via natural voice commands or text</p>
+    <p>Please allow microphone access when prompted for voice interaction.</p>
+    <!-- Button to start voice call -->
+    <button id="startBtn">Start Voice Trade</button>
+    <!-- Status display -->
+    <div id="status">Ready to trade</div>
+    <!-- Chat messages container -->
+    <div id="chatContainer">
+      <!-- Placeholder before session starts -->
+      <div class="message system-message" id="initialPlaceholder">
+        Conversation will appear here when session starts
+      </div>
+    </div>
+    <!-- Text input fallback container -->
+    <div id="textInputContainer">
+      <input type="text" id="textInput" placeholder="Type your message here if voice fails...">
+      <button id="sendTextBtn">Send</button>
+    </div>
+    <div class="input-hint" id="inputHint">Press Enter to send</div>
+    <!-- Notice after session ends -->
+    <div class="end-notice" id="endNotice" style="display: none;">Session ended. Click start to try again.</div>
+  </div>
+
+  <script>
+    // Debug mode toggle to show system messages
+    const DEBUG = true;
+    // Variables to manage the session state and polling
+    let currentCallId = null;
+    let pollInterval = null;
+    let lastMessageCount = 0;
+    let isPolling = false;
+    let recognition = null;
+    let lastBotMessage = null;
+    let lastProcessedInput = null;
+    let lastInputTimestamp = 0;
+    let isProcessing = false;
+    let isSpeaking = false;
+    const DEBOUNCE_DELAY = 1500; // Prevents rapid duplicate inputs
+
+    // DOM element references
+    const startBtn = document.getElementById('startBtn');
+    const endCallBtn = document.getElementById('endCallBtn');
+    const chatContainer = document.getElementById('chatContainer');
+    const statusDiv = document.getElementById('status');
+    const endNotice = document.getElementById('endNotice');
+    const initialPlaceholder = document.getElementById('initialPlaceholder');
+    const textInputContainer = document.getElementById('textInputContainer');
+    const textInput = document.getElementById('textInput');
+    const sendTextBtn = document.getElementById('sendTextBtn');
+    const inputHint = document.getElementById('inputHint');
+
+    // Check for browser support of SpeechRecognition API
+    if (!window.SpeechRecognition && !window.webkitSpeechRecognition) {
+      addErrorMessage("Speech recognition not supported in this browser. Use text input instead.");
+      startBtn.disabled = false;
+    }
+
+    /**
+     * Adds a chat message to the UI
+     * @param {'bot'|'user'|'system'|'error'} sender
+     * @param {string} text
+     * @param {string} timestamp ISO string
+     */
+    function addMessage(sender, text, timestamp) {
+      if (!text || text.trim() === '') return;      
+      // Avoid duplicate bot messages
+      if (sender === 'bot' && lastBotMessage === text) return;
+      // Hide placeholder once chat begins
+      if (initialPlaceholder.style.display !== 'none' && sender !== 'system') {
+        initialPlaceholder.style.display = 'none';
+      }
+      // Format time as HH:MM:SS
+      const displayTime = timestamp ?
+        new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) :
+        new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      // Create message bubble
+      const div = document.createElement('div');
+      div.className = `message ${sender}-message`;
+      div.innerHTML = `${text}<span class="timestamp">${displayTime}</span>`;
+      chatContainer.appendChild(div);
+      chatContainer.scrollTop = chatContainer.scrollHeight;
+      // If bot, speak out loud
+      if (sender === 'bot') {
+        lastBotMessage = text;
+        speak(text);
+      }
+    }
+
+    /** Shows a debug/system message */
+    function addSystemMessage(text) {
+      if (!DEBUG) return;
+      addMessage('system', text, new Date().toISOString());
+    }
+
+    /** Shows an error-style message */
+    function addErrorMessage(text) {
+      addMessage('error', text, new Date().toISOString());
+    }
+
+    /** Clears chat history and resets state */
+    function clearChat() {
+      Array.from(chatContainer.childNodes).forEach(node => {
+        if (node.id !== 'initialPlaceholder') chatContainer.removeChild(node);
+      });
+      initialPlaceholder.style.display = 'block';
+      lastMessageCount = 0;
+      lastBotMessage = null;
+      lastProcessedInput = null;
+      lastInputTimestamp = 0;
+      isProcessing = false;
+    }
+
+    /** Starts polling the server for new messages */
+    function startPolling() {
+      stopPolling();
+      isPolling = true;
+      const poll = async () => {
+        if (!isPolling) return;
+        await pollMessages();
+        pollInterval = setTimeout(poll, 1500);
+      };
+      poll();
+    }
+
+    /** Stops polling */
+    function stopPolling() {
+      if (pollInterval) clearTimeout(pollInterval);
+      isPolling = false;
+    }
+
+    /** Uses Web Speech API to speak bot text */
+    function speak(text) {
+      if (!text) return;
+      isSpeaking = true;
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = 1.0;
+      utterance.pitch = 1.0;
+      utterance.volume = 1.0;
+      utterance.onend = () => {
+        isSpeaking = false;
+        // Resume recognition if session active
+        if (recognition && isPolling && !isProcessing) {
+          setTimeout(() => recognition.start(), 500);
+        }
+      };
+      utterance.onerror = () => { isSpeaking = false; };
+      window.speechSynthesis.speak(utterance);
+    }
+
+    /** Initializes a new voice trading session */
+    async function startCall() {
+      try {
+        clearChat();
+        statusDiv.innerHTML = 'Connecting<span class="loader"></span>';
+        endNotice.style.display = 'none';
+        endCallBtn.style.display = 'none';
+        startBtn.disabled = true;
+        textInputContainer.style.display = 'flex';
+        inputHint.style.display = 'block';
+        // Request server to start a call
+        const res = await axios.post('/start-call');
+        currentCallId = res.data.call_id;
+        if (!currentCallId) throw new Error('No session ID received');
+        // Show initial bot message if any
+        if (res.data.initial_message) {
+          addMessage('bot', res.data.initial_message, new Date().toISOString());
+          lastMessageCount = 1;
+        }
+        statusDiv.textContent = 'Session in progress';
+        endCallBtn.style.display = 'block';
+        // Setup speech recognition if supported
+        if (window.SpeechRecognition || window.webkitSpeechRecognition) {
+          recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+          recognition.lang = 'en-US';
+          recognition.continuous = false;
+          recognition.interimResults = false;
+          recognition.maxAlternatives = 3;
+          recognition.onresult = (event) => {
+            const transcript = event.results[0][0].transcript.trim();
+            processInput(transcript, 'speech');
+            recognition.stop();
+          };
+          recognition.onerror = (event) => {
+            let errorMsg = 'Speech recognition failed. Use text input.';
+            if (event.error === 'not-allowed') errorMsg = 'Microphone access denied. Use text input.';
+            else if (event.error === 'no-speech') errorMsg = 'No speech detected. Try again or type.';
+            else if (event.error === 'audio-capture') errorMsg = 'Microphone issue. Use text input.';
+            addErrorMessage(errorMsg);
+            setTimeout(() => {
+              if (isPolling && !isProcessing && !isSpeaking) recognition.start();
+            }, 1000);
+          };
+          recognition.onend = () => {
+            if (isPolling && !isProcessing && !isSpeaking) {
+              setTimeout(() => recognition.start(), 500);
+            }
+          };
+          recognition.start();
+        } else {
+          addSystemMessage("Voice input unavailable. Using text only.");
+        }
+        startPolling();
+      } catch (e) {
+        console.error('Start error:', e);
+        statusDiv.textContent = 'Start failed: ' + (e.response?.data?.error || e.message);
+        startBtn.disabled = false;
+        textInputContainer.style.display = 'flex';
+        inputHint.style.display = 'block';
+      }
+    }
+
+    /** Polls server for new messages in the current session */
+    async function pollMessages() {
+      if (!currentCallId) return;
+      try {
+        const res = await axios.get(`/poll-messages/${currentCallId}`);
+        const { messages, ended, error } = res.data;
+        if (error) {
+          addMessage('bot', `Error: ${error}`, new Date().toISOString());
+          return;
+        }
+        // Process any new messages
+        if (messages && messages.length > lastMessageCount) {
+          for (let i = lastMessageCount; i < messages.length; i++) {
+            const msg = messages[i];
+            if (msg.sender === 'bot' && msg.text === lastBotMessage) continue;
+            addMessage(msg.sender, msg.text, msg.timestamp || new Date().toISOString());
+          }
+          lastMessageCount = messages.length;
+        }
+        if (ended) endCall();
+      } catch (e) {
+        console.error('Polling error:', e);
+        addMessage('bot', `Connection error: ${e.message}`, new Date().toISOString());
+        if (e.response?.status === 404) endCall();
+      }
+    }
+
+    /** Sends user input (speech/text) to server */
+    async function sendUserInput(transcript) {
+      if (isProcessing) return;
+      isProcessing = true;
+      sendTextBtn.disabled = true;
+      textInput.disabled = true;
+      try {
+        await axios.post('/webhook', {
+          call_id: currentCallId,
+          transcript: transcript,
+          timestamp: new Date().toISOString()
+        }, { timeout: 10000 });
+      } catch (e) {
+        console.error('Send error:', e);
+        addMessage('bot', 'Failed to process input. Try typing again.', new Date().toISOString());
+      } finally {
+        isProcessing = false;
+        sendTextBtn.disabled = false;
+        textInput.disabled = false;
+      }
+    }
+
+    /** Processes input with debounce logic */
+    function processInput(transcript, inputType) {
+      const now = Date.now();
+      if (isProcessing || (now - lastInputTimestamp < DEBOUNCE_DELAY) || transcript === lastProcessedInput) return;
+      lastInputTimestamp = now;
+      lastProcessedInput = transcript;
+      addMessage('user', transcript, new Date().toISOString());
+      sendUserInput(transcript);
+    }
+
+    /** Gracefully ends the session */
+    async function endCall() {
+      if (recognition) {
+        recognition.stop();
+        recognition = null;
+      }
+      stopPolling();
+      window.speechSynthesis.cancel();
+      if (currentCallId) {
+        try {
+          await axios.post('/end-call', { call_id: currentCallId });
+        } catch (e) {
+          console.error('End call error:', e);
+        }
+      }
+      addMessage('system', 'Session ended', new Date().toISOString());
+      statusDiv.textContent = 'Session ended';
+      startBtn.disabled = false;
+      endNotice.style.display = 'block';
+      endCallBtn.style.display = 'none';
+      textInputContainer.style.display = 'none';
+      inputHint.style.display = 'none';
+      currentCallId = null;
+      lastMessageCount = 0;
+      lastBotMessage = null;
+      lastProcessedInput = null;
+      lastInputTimestamp = 0;
+      isProcessing = false;
+      isSpeaking = false;
+    }
+
+    // Event listeners for buttons and input actions
+    sendTextBtn.addEventListener('click', () => {
+      const text = textInput.value.trim();
+      if (text) { processInput(text, 'text'); textInput.value = ''; }
+    });
+    textInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        const text = textInput.value.trim();
+        if (text) { processInput(text, 'text'); textInput.value = ''; }
+      }
+    });
+    startBtn.addEventListener('click', startCall);
+    endCallBtn.addEventListener('click', endCall);
+
+    // Initialize UI on page load
+    window.addEventListener('load', () => {
+      if (DEBUG) addSystemMessage("Debug mode enabled");
+      startBtn.focus();
+    });
+
+    // Ensure sessions are ended when navigating away
+    window.addEventListener('beforeunload', () => {
+      if (currentCallId) {
+        axios.post('/end-call', { call_id: currentCallId }).catch(() => {});
+      }
+    });
+  </script>
+</body>
+</html>
